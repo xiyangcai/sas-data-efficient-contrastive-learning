@@ -8,6 +8,8 @@ from collections import namedtuple
 from data_proc.augmentation import ColourDistortion
 from data_proc.dataset import *
 from resnet import *
+from data_proc.text_augmentation import *
+
 
 class SupportedDatasets(Enum):
     CIFAR10 = "cifar10"
@@ -15,8 +17,11 @@ class SupportedDatasets(Enum):
     TINY_IMAGENET = "tiny_imagenet"
     IMAGENET = "imagenet"
     STL10 = "stl10"
+    IMDB = "imdb"
+
 
 Datasets = namedtuple('Datasets', 'trainset testset clftrainset num_classes stem')
+
 
 def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=False, num_positive=2):
 
@@ -28,12 +33,19 @@ def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=Fals
         SupportedDatasets.IMAGENET.value: ((0.485, 0.456, 0.3868), (0.2309, 0.2262, 0.2237))
     }
 
+    root = os.path.expanduser("~/.cache")
     PATHS = {
-        SupportedDatasets.CIFAR10.value: '/data/cifar10/',
-        SupportedDatasets.CIFAR100.value: '/data/cifar100/',
-        SupportedDatasets.STL10.value: '/data/stl10/',
-        SupportedDatasets.TINY_IMAGENET.value: '/data/tiny_imagenet/',
-        SupportedDatasets.IMAGENET.value: '/data/ILSVRC/'
+        # SupportedDatasets.CIFAR10.value: '/data/cifar10/',
+        # SupportedDatasets.CIFAR100.value: '/data/cifar100/',
+        # SupportedDatasets.STL10.value: '/data/stl10/',
+        # SupportedDatasets.TINY_IMAGENET.value: '/data/tiny_imagenet/',
+        # SupportedDatasets.IMAGENET.value: '/data/ILSVRC/'
+        SupportedDatasets.CIFAR10.value: root,
+        SupportedDatasets.CIFAR100.value: root,
+        SupportedDatasets.STL10.value: root,
+        SupportedDatasets.TINY_IMAGENET.value: root,
+        SupportedDatasets.IMAGENET.value: root,
+        SupportedDatasets.IMDB.value: None
     }
 
     try:
@@ -50,49 +62,50 @@ def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=Fals
     elif dataset == SupportedDatasets.IMAGENET.value:
         img_size = 224
     elif dataset == SupportedDatasets.TINY_IMAGENET.value:
-       img_size = 64
+        img_size = 64
     else:
         img_size = 32
 
-    transform_train = transforms.Compose([
-        transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
-        transforms.RandomHorizontalFlip(),
-        ColourDistortion(s=0.5),
-        transforms.ToTensor(),
-        transforms.Normalize(*CACHED_MEAN_STD[dataset]),
-    ])
-
-    if dataset == SupportedDatasets.IMAGENET.value:
-        transform_test = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(*CACHED_MEAN_STD[dataset]),
-        ])
-    else:
-        transform_test = transforms.Compose([
+    if dataset not in (SupportedDatasets.IMDB.value, ):
+        transform_train = transforms.Compose([
+            transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
+            transforms.RandomHorizontalFlip(),
+            ColourDistortion(s=0.5),
             transforms.ToTensor(),
             transforms.Normalize(*CACHED_MEAN_STD[dataset]),
         ])
 
-    if augment_clf_train:
-        transform_clftrain = transforms.Compose([
-            transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(*CACHED_MEAN_STD[dataset]),
-        ])
-    else:
-        transform_clftrain = transform_test
-    if augment_clf_train:
-        transform_clftrain = transforms.Compose([
-            transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(*CACHED_MEAN_STD[dataset]),
-        ])
-    else:
-        transform_clftrain = transform_test
+        if dataset == SupportedDatasets.IMAGENET.value:
+            transform_test = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                transforms.Normalize(*CACHED_MEAN_STD[dataset]),
+            ])
+        else:
+            transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(*CACHED_MEAN_STD[dataset]),
+            ])
+
+        if augment_clf_train:
+            transform_clftrain = transforms.Compose([
+                transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(*CACHED_MEAN_STD[dataset]),
+            ])
+        else:
+            transform_clftrain = transform_test
+        if augment_clf_train:
+            transform_clftrain = transforms.Compose([
+                transforms.RandomResizedCrop(img_size, interpolation=Image.BICUBIC),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(*CACHED_MEAN_STD[dataset]),
+            ])
+        else:
+            transform_clftrain = transform_test
 
     trainset = testset = clftrainset = num_classes = stem = None
     
@@ -146,4 +159,13 @@ def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=Fals
         num_classes = 1000
         stem = StemImageNet
 
+    # IMDB dataset for NLP
+    elif dataset == SupportedDatasets.IMDB.value:
+        trainset = AugmentedIMDbDataset(split='train', augment_function=random_deletion)
+        clftrainset = IMDbDataset(split='train')
+        testset = IMDbDataset(split='test')
+        num_classes = 2
+        stem = None
+
     return Datasets(trainset=trainset, testset=testset, clftrainset=clftrainset, num_classes=num_classes, stem=stem)
+

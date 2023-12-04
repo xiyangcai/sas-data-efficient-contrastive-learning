@@ -21,9 +21,10 @@ from trainer import Trainer
 from util import Random
 
 def main(rank: int, world_size: int, args):
-
+    wandb.login(key="ecad94ef37d3409034bd0a8afe03261b1391c1e5")
     # Determine Device 
     device = rank
+
     if args.distributed:
         device = args.device_ids[rank]
         torch.cuda.set_device(args.device_ids[rank])
@@ -208,14 +209,14 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.5, help='InfoNCE temperature')
     parser.add_argument("--batch-size", type=int, default=512, help='Training batch size')
     parser.add_argument("--lr", type=float, default=1e-3, help='learning rate')
-    parser.add_argument("--num-epochs", type=int, default=400, help='Number of training epochs')
+    parser.add_argument("--num-epochs", type=int, default=50, help='Number of training epochs')
     parser.add_argument("--arch", type=str, default='resnet18', help='Encoder architecture',
                         choices=['resnet10', 'resnet18', 'resnet34', 'resnet50'])
     parser.add_argument("--test-freq", type=int, default=10, help='Frequency to fit a linear clf with L-BFGS for testing'
                                                                 'Not appropriate for large datasets. Set 0 to avoid '
                                                                 'classifier only training here.')
-    parser.add_argument("--checkpoint-freq", type=int, default=400, help="How often to checkpoint model")
-    parser.add_argument('--dataset', type=str, default=str(SupportedDatasets.CIFAR100.value), help='dataset',
+    parser.add_argument("--checkpoint-freq", type=int, default=50, help="How often to checkpoint model")
+    parser.add_argument('--dataset', type=str, default=str(SupportedDatasets.CIFAR10.value), help='dataset',
                         choices=[x.value for x in SupportedDatasets])
     parser.add_argument('--subset-indices', type=str, default="", help="Path to subset indices")
     parser.add_argument('--random-subset', action="store_true", help="Random subset")
@@ -229,7 +230,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Arguments check and initialize global variables
-    device = "cpu"
+    device = "cuda"
     device_ids = None
     distributed = False
     if torch.cuda.is_available():
