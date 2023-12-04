@@ -10,7 +10,7 @@ from sas.submodular_maximization import lazy_greedy
 from sas.subset_dataset import BaseSubsetDataset, SubsetSelectionObjective
 from tqdm import tqdm
 
-from data_proc import NLPDataLoader
+from data_proc.NLPDataLoader import IMDbDataLoader
 
 
 class SASSubsetTextDataset(BaseSubsetDataset):
@@ -96,7 +96,7 @@ class SASSubsetTextDataset(BaseSubsetDataset):
         return augmentation_distance
 
     def encode_trainset(self):
-        trainloader = NLPDataLoader(self.dataset, batch_size=self.pairwise_distance_block_size)
+        trainloader = IMDbDataLoader(self.dataset, batch_size=self.pairwise_distance_block_size)
 
         with torch.no_grad():
             Z = []
@@ -106,18 +106,22 @@ class SASSubsetTextDataset(BaseSubsetDataset):
         return torch.cat(Z, dim=0)
 
     def encode_augmented_trainset(self, num_positives=1):
-        trainloader = NLPDataLoader(self.dataset, batch_size=self.pairwise_distance_block_size)
+        trainloader = IMDbDataLoader(self.dataset, batch_size=self.pairwise_distance_block_size)
 
         with torch.no_grad():
             Z = []
-            for _ in range(num_positives):
-                Z.append([])
-            for X in trainloader:
-                for j in range(num_positives):
-                    Z[j].append(self.proxy_model(X[j].to(self.device)))
-        for i in range(num_positives):
-            Z[i] = torch.cat(Z[i], dim=0)
-        Z = torch.cat(Z, dim=0)
+
+            for input in trainloader:
+                text, text_lengths = input.text
+                Z.append(self.proxy_model(text.to(self.device), text_lengths.to(self.device)))
+            Z = torch.stack(Z)
+
+            aug_z = []
+            idxs = torch.arange(0, len(Z), num_positives)
+            for i in range(num_positives):
+                aug_z.append(Z[idxs + i])
+
+            Z = torch.cat(aug_z, dim=0)
         return Z
 
     @staticmethod
