@@ -17,12 +17,14 @@ import wandb
 from configs import SupportedDatasets, get_datasets, IMDbDatasetSubset
 from data_proc.NLPDataLoader import IMDbDataLoader
 from data_proc.dataset import AugmentedIMDbDataset
-from data_proc.text_augmentation import random_deletion
+from data_proc.text_augmentation import *
 from projection_heads.critic import LinearCritic
 from resnet import *
 from RNN import *
 from trainer_text import NLPTrainer
 from util import Random
+
+AUG_FUNC = synonym_replace
 
 
 def main(rank: int, world_size: int, args):
@@ -52,7 +54,7 @@ def main(rank: int, world_size: int, args):
     Random(args.seed)
 
     print('==> Preparing data..')
-    datasets = get_datasets(args.dataset)
+    datasets = get_datasets(args.dataset, aug_func=AUG_FUNC)
 
     ##############################################################
     # Load Subset Indices
@@ -60,19 +62,19 @@ def main(rank: int, world_size: int, args):
     # args.random_subset = True
     # args.subset_fraction = 0.2
 
-    # args.subset_indices = "IMDb-0.2-sas-indices.pkl"
+    # args.subset_indices = "IMDb-0.8-sas-indices.pkl"
     if args.random_subset:
         ori_size = len(datasets.trainset)
         # print(len(ori_size))
         subset_size = int(ori_size * args.subset_fraction)
         rand_idxs = np.random.choice(range(ori_size), subset_size)
         # print('idx size:', len(rand_idxs))
-        trainset = AugmentedIMDbDataset(split='train', augment_function=random_deletion,
+        trainset = AugmentedIMDbDataset(split='train', augment_function=AUG_FUNC,
                                         indices=rand_idxs)
     elif args.subset_indices != "":
         with open(args.subset_indices, "rb") as f:
             subset_indices = pickle.load(f)
-        trainset = AugmentedIMDbDataset(split='train', augment_function=random_deletion,
+        trainset = AugmentedIMDbDataset(split='train', augment_function=AUG_FUNC,
                                         indices=subset_indices)
     else:
         trainset = datasets.trainset

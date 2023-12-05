@@ -1,6 +1,7 @@
 import os
 from typing import Any, Callable, Optional
 
+import nltk
 import numpy as np
 import pandas as pd
 import torch
@@ -8,10 +9,12 @@ import torchvision
 from PIL import Image
 from torchvision.datasets import ImageFolder
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
+from nltk.stem import PorterStemmer, SnowballStemmer
 from torchtext import data, datasets
 from tqdm import tqdm
 import random
+import string
+import re
 
 
 class CIFAR10Augment(torchvision.datasets.CIFAR10):
@@ -176,7 +179,11 @@ class ImageNetAugment(torch.utils.data.Dataset):
 
 def preprocess_text(words):
     stop_words = set(stopwords.words('english'))
-    stemmer = PorterStemmer()
+    stop_words.add('br')
+    text = ' '.join(words)
+    words = nltk.word_tokenize(text)
+    stemmer = SnowballStemmer("english")
+    words = [re.sub('\W+', '', word) for word in words]
     filtered_words = [word for word in words if word.lower() not in stop_words]
     stemmed_words = [stemmer.stem(word) for word in filtered_words]
     return stemmed_words

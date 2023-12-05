@@ -52,7 +52,7 @@ def main():
         verbose=True
     )
 
-    subset_dataset.save_to_file("IMDb-0.2-sas-indices.pkl")
+    subset_dataset.save_to_file(f"IMDb-{SUBSET_FRAC}-sas-indices.pkl")
 
 
 if __name__ == '__main__':
