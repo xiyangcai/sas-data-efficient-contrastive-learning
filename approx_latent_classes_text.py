@@ -49,6 +49,7 @@ def encode_using_glove(dataset, device):
     Z = torch.stack(texts).to(device)
     return Z
 
+
 def train_linear_classifier(
     X: torch.tensor,
     y: torch.tensor,
@@ -81,6 +82,7 @@ def train_linear_classifier(
             return loss
         clf_optimizer.step(closure)
     return clf
+
 
 def partition_from_preds(preds):
     partition = {}

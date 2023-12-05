@@ -2,7 +2,7 @@ import numpy as np
 import random
 
 
-def random_deletion(tokens, p=0.5):
+def random_deletion(tokens, p=0.2):
     if len(tokens) == 0:
         return tokens
 

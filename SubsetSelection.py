@@ -3,11 +3,24 @@ import random
 from data_proc.dataset import IMDbDataset
 from approx_latent_classes_text import glove_approx
 from SubsetTextDataset import SASSubsetTextDataset
+from torch import nn
 
-CRITIC_PATH = "2023-12-0317:57:33.875617-imdb-LSTM-99-critic.pt"
-NET_PATH = "2023-12-0317:57:33.875617-imdb-LSTM-99-net.pt"
+CRITIC_PATH = "2023-12-0416:49:33.492286-imdb-LSTM-49-critic.pt"
+NET_PATH = "2023-12-0416:49:33.492286-imdb-LSTM-49-net.pt"
 NUM_CLASSES = 2
-SUBSET_FRAC = 0.2
+SUBSET_FRAC = 0.8
+
+
+class ProxyModel(nn.Module):
+    def __init__(self, net, critic):
+        super().__init__()
+        self.net = net
+        self.critic = critic
+
+    def forward(self, text, text_lengths):
+        return self.critic.project(self.net(text, text_lengths))
+
+
 def main():
     device = torch.device('cuda')
     imdb_train_dataset = IMDbDataset(split='train')
@@ -24,17 +37,6 @@ def main():
         num_classes=NUM_CLASSES,
         device=device
     )
-
-    from torch import nn
-
-    class ProxyModel(nn.Module):
-        def __init__(self, net, critic):
-            super().__init__()
-            self.net = net
-            self.critic = critic
-
-        def forward(self, text, text_lengths):
-            return self.critic.project(self.net(text, text_lengths))
 
     net = torch.load(NET_PATH)
     critic = torch.load(CRITIC_PATH)

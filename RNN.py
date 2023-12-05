@@ -3,12 +3,17 @@ import torch.nn as nn
 
 
 class LSTM(nn.Module):
-    def __init__(self, input_dim, embedding_dim=128, hidden_dim=256, output_dim=None):
+    def __init__(self, input_dim, embedding_dim=128, hidden_dim=256, pre_embedding=None, output_dim=None):
 
         super().__init__()
 
         self.embedding = nn.Embedding(input_dim, embedding_dim)
-        self.rnn = nn.LSTM(embedding_dim, hidden_dim)
+
+        if pre_embedding is not None:
+            self.embedding.weight.data.copy_(pre_embedding)
+
+        self.rnn = nn.LSTM(embedding_dim, hidden_dim, num_layers=2)
+
         self.representation_dim = hidden_dim
 
         if output_dim is not None:
@@ -31,4 +36,4 @@ class LSTM(nn.Module):
         if self.fc is not None:
             return self.fc(hidden.squeeze(0)).view(-1)
         else:
-            return hidden.squeeze(0)
+            return hidden[-1]

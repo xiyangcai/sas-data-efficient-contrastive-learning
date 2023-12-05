@@ -1,9 +1,11 @@
-
-from typing import Dict, Optional
+from abc import ABC
+from typing import Dict, List, Optional
+import math
 
 import numpy as np
 import torch
 import torch.nn as nn
+import pickle
 from torch.utils.data import Dataset
 
 from sas.submodular_maximization import lazy_greedy
@@ -11,6 +13,8 @@ from sas.subset_dataset import BaseSubsetDataset, SubsetSelectionObjective
 from tqdm import tqdm
 
 from data_proc.NLPDataLoader import IMDbDataLoader
+from data_proc.dataset import IMDbDataset
+
 
 
 class SASSubsetTextDataset(BaseSubsetDataset):

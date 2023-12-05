@@ -14,8 +14,10 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 
-from configs import SupportedDatasets, get_datasets
+from configs import SupportedDatasets, get_datasets, IMDbDatasetSubset
 from data_proc.NLPDataLoader import IMDbDataLoader
+from data_proc.dataset import AugmentedIMDbDataset
+from data_proc.text_augmentation import random_deletion
 from projection_heads.critic import LinearCritic
 from resnet import *
 from RNN import *
@@ -55,19 +57,23 @@ def main(rank: int, world_size: int, args):
     ##############################################################
     # Load Subset Indices
     ##############################################################
+    # args.random_subset = True
+    # args.subset_fraction = 0.2
 
+    # args.subset_indices = "IMDb-0.2-sas-indices.pkl"
     if args.random_subset:
-        trainset = sas.subset_dataset.RandomSubsetDataset(
-            dataset=datasets.trainset,
-            subset_fraction=args.subset_fraction
-        )
+        ori_size = len(datasets.trainset)
+        # print(len(ori_size))
+        subset_size = int(ori_size * args.subset_fraction)
+        rand_idxs = np.random.choice(range(ori_size), subset_size)
+        # print('idx size:', len(rand_idxs))
+        trainset = AugmentedIMDbDataset(split='train', augment_function=random_deletion,
+                                        indices=rand_idxs)
     elif args.subset_indices != "":
         with open(args.subset_indices, "rb") as f:
             subset_indices = pickle.load(f)
-        trainset = sas.subset_dataset.CustomSubsetDataset(
-            dataset=datasets.trainset,
-            subset_indices=subset_indices
-        )
+        trainset = AugmentedIMDbDataset(split='train', augment_function=random_deletion,
+                                        indices=subset_indices)
     else:
         trainset = datasets.trainset
     print("subset_size:", len(trainset))
@@ -88,7 +94,11 @@ def main(rank: int, world_size: int, args):
     elif args.arch == 'resnet50':
         net = ResNet50(stem=datasets.stem)
     elif args.arch == 'LSTM':
-        net = LSTM(input_dim=len(trainset.TEXT.vocab))
+        net = LSTM(
+            input_dim=len(trainset.TEXT.vocab),
+            embedding_dim=100,
+            pre_embedding=trainset.TEXT.vocab.vectors
+        )
     else:
         raise ValueError("Bad architecture specification")
 
@@ -108,7 +118,7 @@ def main(rank: int, world_size: int, args):
     ##############################################################
 
     trainloader = IMDbDataLoader(dataset=trainset, batch_size=args.batch_size * trainset.num_positive)
-    clftrainloader = IMDbDataLoader(dataset=datasets.trainset, batch_size=args.batch_size)
+    clftrainloader = IMDbDataLoader(dataset=datasets.clftrainset, batch_size=args.batch_size)
     testloader = IMDbDataLoader(dataset=datasets.testset, batch_size=args.batch_size)
 
     ##############################################################
@@ -197,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.5, help='InfoNCE temperature')
     parser.add_argument("--batch-size", type=int, default=128, help='Training batch size')
     parser.add_argument("--lr", type=float, default=1e-2, help='learning rate')
-    parser.add_argument("--num-epochs", type=int, default=100, help='Number of training epochs')
+    parser.add_argument("--num-epochs", type=int, default=50, help='Number of training epochs')
     parser.add_argument("--arch", type=str, default='LSTM', help='Encoder architecture',
                         choices=['resnet10', 'resnet18', 'resnet34', 'resnet50', 'LSTM'])
     parser.add_argument("--test-freq", type=int, default=10,

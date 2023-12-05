@@ -66,7 +66,7 @@ class NLPTrainer(Trainer):
 
         # Training Loop (over batches in epoch)
         train_loss = 0
-        t = tqdm(enumerate(self.trainloader), desc='Loss: **** ', total=len(self.trainloader),
+        t = tqdm(enumerate(self.trainloader), desc='Loss', total=len(self.trainloader),
                  bar_format='{desc}{bar}{r_bar}')
         for batch_idx, inputs in t:
             num_positive = self.num_positive
@@ -87,6 +87,7 @@ class NLPTrainer(Trainer):
             print("lr:", self.scale_lr * self.lr_scheduler.get_last_lr()[0])
 
         return train_loss / len(self.trainloader)
+
     def test(self):
         X, y = encode_train_set(self.clftrainloader, self.device, self.net)
         representation_dim = self.net.module.representation_dim if self.distributed else self.net.representation_dim
