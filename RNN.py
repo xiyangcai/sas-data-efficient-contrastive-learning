@@ -12,7 +12,7 @@ class LSTM(nn.Module):
         if pre_embedding is not None:
             self.embedding.weight.data.copy_(pre_embedding)
 
-        self.rnn = nn.LSTM(embedding_dim, hidden_dim, num_layers=2)
+        self.rnn = nn.LSTM(embedding_dim, hidden_dim, num_layers=1)
 
         self.representation_dim = hidden_dim
 

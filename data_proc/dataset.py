@@ -182,11 +182,11 @@ def preprocess_text(words):
     stop_words.add('br')
     text = ' '.join(words)
     words = nltk.word_tokenize(text)
-    stemmer = SnowballStemmer("english")
+    # stemmer = SnowballStemmer("english")
     words = [re.sub('\W+', '', word) for word in words]
-    filtered_words = [word for word in words if word.lower() not in stop_words]
-    stemmed_words = [stemmer.stem(word) for word in filtered_words]
-    return stemmed_words
+    words = [word.lower().replace(' ', '') for word in words if word.lower() not in stop_words]
+    # stemmed_words = [stemmer.stem(word) for word in filtered_words]
+    return words
 
 
 class IMDbDatasetSubset(torch.utils.data.Dataset):

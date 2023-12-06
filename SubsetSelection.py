@@ -5,8 +5,8 @@ from approx_latent_classes_text import glove_approx
 from SubsetTextDataset import SASSubsetTextDataset
 from torch import nn
 
-CRITIC_PATH = "2023-12-0416:49:33.492286-imdb-LSTM-49-critic.pt"
-NET_PATH = "2023-12-0416:49:33.492286-imdb-LSTM-49-net.pt"
+CRITIC_PATH = "2023-12-0517:20:10.077674-imdb-LSTM-49-critic.pt"
+NET_PATH = "2023-12-0517:20:10.077674-imdb-LSTM-49-net.pt"
 NUM_CLASSES = 2
 SUBSET_FRAC = 0.8
 

@@ -24,11 +24,11 @@ from RNN import *
 from trainer_text import NLPTrainer
 from util import Random
 
-AUG_FUNC = synonym_replace
+AUG_FUNC = random_window_selection
+DT_STRING = "".join(str(datetime.now()).split())  # Date Time String
 
 
 def main(rank: int, world_size: int, args):
-    # wandb.login(key="ecad94ef37d3409034bd0a8afe03261b1391c1e5")
     # Determine Device 
     device = rank
 
@@ -39,11 +39,10 @@ def main(rank: int, world_size: int, args):
 
     # WandB Logging
     if not args.distributed or rank == 0:
-        pass
-        # wandb.init(
-        #     project="data-efficient-contrastive-learning-IMDB",
-        #     config=args
-        # )
+        wandb.init(
+            project="data-efficient-contrastive-learning-IMDB",
+            config=args
+        )
 
     if args.distributed:
         args.batch_size = int(args.batch_size / world_size)
@@ -60,7 +59,7 @@ def main(rank: int, world_size: int, args):
     # Load Subset Indices
     ##############################################################
     # args.random_subset = True
-    # args.subset_fraction = 0.2
+    # args.subset_fraction = 0.8
 
     # args.subset_indices = "IMDb-0.8-sas-indices.pkl"
     if args.random_subset:
@@ -127,9 +126,6 @@ def main(rank: int, world_size: int, args):
     # Main Loop (Train, Test)
     ##############################################################
 
-    # Date Time String
-    DT_STRING = "".join(str(datetime.now()).split())
-
     if args.distributed:
         ddp_setup(rank, world_size, str(args.port))
 
@@ -159,37 +155,41 @@ def main(rank: int, world_size: int, args):
         train_loss = trainer.train()
         print(f"train_loss: {train_loss}")
         if not args.distributed or rank == 0:
-            pass
-            # wandb.log(
-            #     data={"train": {
-            #         "loss": train_loss,
-            #     }},
-            #     step=epoch
-            # )
+            wandb.log(
+                data={"train": {
+                    "loss": train_loss,
+                }},
+                step=epoch
+            )
 
         if (args.test_freq > 0) and (not args.distributed or rank == 0) and ((epoch + 1) % args.test_freq == 0):
             test_acc = trainer.test()
             print(f"test_acc: {test_acc}")
-            # wandb.log(
-            #     data={"test": {
-            #         "acc": test_acc,
-            #     }},
-            #     step=epoch
-            # )
+            wandb.log(
+                data={"test": {
+                    "acc": test_acc,
+                }},
+                step=epoch
+            )
 
         # Checkpoint Model
         if (args.checkpoint_freq > 0) and (
-                (not args.distributed or rank == 0) and (epoch + 1) % args.checkpoint_freq == 0):
+                not args.distributed or rank == 0
+        ) and (
+                (epoch + 1) % args.checkpoint_freq == 0
+        ) and (
+            not args.random_subset and args.subset_indices == ""
+        ):
             trainer.save_checkpoint(prefix=f"{DT_STRING}-{args.dataset}-{args.arch}-{epoch}")
 
     if not args.distributed or rank == 0:
         print(f"best_test_acc: {trainer.best_acc}")
-        # wandb.log(
-        #     data={"test": {
-        #         "best_acc": trainer.best_acc,
-        #     }}
-        # )
-        # wandb.finish(quiet=True)
+        wandb.log(
+            data={"test": {
+                "best_acc": trainer.best_acc,
+            }}
+        )
+        wandb.finish(quiet=True)
 
     if args.distributed:
         destroy_process_group()
@@ -208,15 +208,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Contrastive Learning.')
     parser.add_argument('--temperature', type=float, default=0.5, help='InfoNCE temperature')
     parser.add_argument("--batch-size", type=int, default=128, help='Training batch size')
-    parser.add_argument("--lr", type=float, default=1e-2, help='learning rate')
-    parser.add_argument("--num-epochs", type=int, default=50, help='Number of training epochs')
+    parser.add_argument("--lr", type=float, default=1e-4, help='learning rate')
+    parser.add_argument("--num-epochs", type=int, default=100, help='Number of training epochs')
     parser.add_argument("--arch", type=str, default='LSTM', help='Encoder architecture',
                         choices=['resnet10', 'resnet18', 'resnet34', 'resnet50', 'LSTM'])
     parser.add_argument("--test-freq", type=int, default=10,
                         help='Frequency to fit a linear clf with L-BFGS for testing'
                              'Not appropriate for large datasets. Set 0 to avoid '
                              'classifier only training here.')
-    parser.add_argument("--checkpoint-freq", type=int, default=50, help="How often to checkpoint model")
+    parser.add_argument("--checkpoint-freq", type=int, default=100, help="How often to checkpoint model")
     parser.add_argument('--dataset', type=str, default=str(SupportedDatasets.IMDB.value), help='dataset',
                         choices=[x.value for x in SupportedDatasets])
     parser.add_argument('--subset-indices', type=str, default="", help="Path to subset indices")
