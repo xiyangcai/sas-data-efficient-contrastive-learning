@@ -190,7 +190,7 @@ def preprocess_text(words):
 
 
 class IMDbDatasetSubset(torch.utils.data.Dataset):
-    def __init__(self, idxs, max_vocab_size=20000):
+    def __init__(self, idxs, max_vocab_size=20000, embedding_dim=100):
         self.TEXT = data.Field(tokenize='spacy', include_lengths=True)
         self.LABEL = data.LabelField(dtype=torch.float)
 
@@ -205,7 +205,7 @@ class IMDbDatasetSubset(torch.utils.data.Dataset):
 
         self.data = self.preprocess_dataset(self.data)
 
-        self.TEXT.build_vocab(self.data, max_size=max_vocab_size, vectors=f"glove.6B.100d")
+        self.TEXT.build_vocab(self.data, max_size=max_vocab_size, vectors=f"glove.6B.{embedding_dim}d")
         self.LABEL.build_vocab(self.data)
 
         self.fields = {'text': self.TEXT, 'label': self.LABEL}
@@ -281,7 +281,8 @@ class AugmentedIMDbDataset(IMDbDataset):
                  embedding_dim=100,
                  augment_function=None,
                  num_positive=2,
-                 indices=None
+                 indices=None,
+                 aug_probs=0.5
                  ):
         super().__init__(split, max_vocab_size, embedding_dim)
         self.num_positive = num_positive
@@ -292,7 +293,7 @@ class AugmentedIMDbDataset(IMDbDataset):
             if indices is not None and idx not in indices:
                 continue
             for _ in range(self.num_positive):
-                example_augmented_text = self.augment_function(example.text)
+                example_augmented_text = self.augment_function(example.text, aug_probs)
                 new_example = data.Example.fromlist(
                     [example_augmented_text, example.label],
                     [('text', self.TEXT), ('label', self.LABEL)]

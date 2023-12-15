@@ -24,11 +24,24 @@ from RNN import *
 from trainer_text import NLPTrainer
 from util import Random
 
-AUG_FUNC = random_window_selection
+# AUG_FUNC = random_deletion
+# AUG_FUNC = synonym_wordnet_replacement
+
+# AUG_FUNC = random_window_selection
+# AUG_FUNC = synonym_ppdb_replacement
 DT_STRING = "".join(str(datetime.now()).split())  # Date Time String
 
 
 def main(rank: int, world_size: int, args):
+    if args.aug_type == 'RandCrop':
+        AUG_FUNC = random_window_selection
+    elif args.aug_type == 'PPDB':
+        AUG_FUNC = synonym_ppdb_replacement
+    elif args.aug_type == 'WordNet':
+        AUG_FUNC = synonym_wordnet_replacement
+
+    EMBEDDING_DIM = args.embedding
+    HIDDEN_DIM = args.hidden_dim
     # Determine Device 
     device = rank
 
@@ -38,9 +51,19 @@ def main(rank: int, world_size: int, args):
         args.lr *= world_size
 
     # WandB Logging
+    if args.random_subset:
+        running_name = f'random-{args.subset_fraction}'
+    elif args.subset_indices != "":
+        running_name = f'sas-{args.subset_fraction}'
+    else:
+        running_name = 'full'
+
+    running_name = f'emb{EMBEDDING_DIM}-hidden{HIDDEN_DIM}-{running_name}-{args.aug_type}{args.aug_prob}'
+
     if not args.distributed or rank == 0:
         wandb.init(
-            project="data-efficient-contrastive-learning-IMDB",
+            project="data-efficient-contrastive-learning-IMDB-Emb300-Hidden512",
+            name=running_name,
             config=args
         )
 
@@ -53,7 +76,7 @@ def main(rank: int, world_size: int, args):
     Random(args.seed)
 
     print('==> Preparing data..')
-    datasets = get_datasets(args.dataset, aug_func=AUG_FUNC)
+    datasets = get_datasets(args.dataset, aug_func=AUG_FUNC, embedding_dim=EMBEDDING_DIM, aug_probs=args.aug_prob)
 
     ##############################################################
     # Load Subset Indices
@@ -61,7 +84,7 @@ def main(rank: int, world_size: int, args):
     # args.random_subset = True
     # args.subset_fraction = 0.8
 
-    # args.subset_indices = "IMDb-0.8-sas-indices.pkl"
+    # args.subset_indices = "IMDb-0.8-sas-bert-indices.pkl"
     if args.random_subset:
         ori_size = len(datasets.trainset)
         # print(len(ori_size))
@@ -69,12 +92,12 @@ def main(rank: int, world_size: int, args):
         rand_idxs = np.random.choice(range(ori_size), subset_size)
         # print('idx size:', len(rand_idxs))
         trainset = AugmentedIMDbDataset(split='train', augment_function=AUG_FUNC,
-                                        indices=rand_idxs)
+                                        indices=rand_idxs, embedding_dim=EMBEDDING_DIM, aug_probs=args.aug_prob)
     elif args.subset_indices != "":
         with open(args.subset_indices, "rb") as f:
             subset_indices = pickle.load(f)
         trainset = AugmentedIMDbDataset(split='train', augment_function=AUG_FUNC,
-                                        indices=subset_indices)
+                                        indices=subset_indices, embedding_dim=EMBEDDING_DIM, aug_probs=args.aug_prob)
     else:
         trainset = datasets.trainset
     print("subset_size:", len(trainset))
@@ -97,7 +120,8 @@ def main(rank: int, world_size: int, args):
     elif args.arch == 'LSTM':
         net = LSTM(
             input_dim=len(trainset.TEXT.vocab),
-            embedding_dim=100,
+            embedding_dim=EMBEDDING_DIM,
+            hidden_dim=HIDDEN_DIM,
             pre_embedding=trainset.TEXT.vocab.vectors
         )
     else:
@@ -180,7 +204,8 @@ def main(rank: int, world_size: int, args):
         ) and (
             not args.random_subset and args.subset_indices == ""
         ):
-            trainer.save_checkpoint(prefix=f"{DT_STRING}-{args.dataset}-{args.arch}-{epoch}")
+            trainer.save_checkpoint(prefix=running_name)
+            # trainer.save_checkpoint(prefix=f"{DT_STRING}-{args.dataset}-{args.arch}-{epoch}")
 
     if not args.distributed or rank == 0:
         print(f"best_test_acc: {trainer.best_acc}")
@@ -227,6 +252,11 @@ if __name__ == "__main__":
     parser.add_argument("--device-ids", nargs="+", default=None, help="Specify device ids if using multiple gpus")
     parser.add_argument('--port', type=int, default=random.randint(49152, 65535), help="free port to use")
     parser.add_argument('--seed', type=int, default=0, help="Seed for randomness")
+
+    parser.add_argument('--aug-type', type=str, default='RandCrop', help="Augmentation type")
+    parser.add_argument('--aug-prob', type=float, default=0.2, help="Prob for augmentation")
+    parser.add_argument('--embedding', type=int, default=300, help="GloVE Embedding Dim")
+    parser.add_argument('--hidden-dim', type=int, default=512, help="LSTM Hidden Dim")
 
     # Parse arguments
     args = parser.parse_args()

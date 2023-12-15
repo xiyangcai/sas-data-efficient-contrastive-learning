@@ -4,11 +4,12 @@ from data_proc.dataset import IMDbDataset
 from approx_latent_classes_text import glove_approx
 from SubsetTextDataset import SASSubsetTextDataset
 from torch import nn
+import argparse
 
-CRITIC_PATH = "2023-12-0517:20:10.077674-imdb-LSTM-49-critic.pt"
-NET_PATH = "2023-12-0517:20:10.077674-imdb-LSTM-49-net.pt"
+CRITIC_PATH = "emb300-hidden512-full-RandCrop0.2-critic.pt"
+NET_PATH = "emb300-hidden512-full-RandCrop0.2-net.pt"
 NUM_CLASSES = 2
-SUBSET_FRAC = 0.8
+# SUBSET_FRAC = 0.8
 
 
 class ProxyModel(nn.Module):
@@ -21,8 +22,9 @@ class ProxyModel(nn.Module):
         return self.critic.project(self.net(text, text_lengths))
 
 
-def main():
+def main(args):
     device = torch.device('cuda')
+    subset_frac = args.subset_fraction
     imdb_train_dataset = IMDbDataset(split='train')
 
     rand_labeled_examples_indices = random.sample(range(len(imdb_train_dataset)), 500)
@@ -44,7 +46,7 @@ def main():
 
     subset_dataset = SASSubsetTextDataset(
         dataset=imdb_train_dataset,
-        subset_fraction=SUBSET_FRAC,
+        subset_fraction=subset_frac,
         num_downstream_classes=NUM_CLASSES,
         device=device,
         proxy_model=proxy_model,
@@ -52,8 +54,13 @@ def main():
         verbose=True
     )
 
-    subset_dataset.save_to_file(f"IMDb-{SUBSET_FRAC}-sas-indices.pkl")
+    subset_dataset.save_to_file(f"IMDb-{subset_frac}-sas-indices.pkl")
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='SAS Selection')
+    parser.add_argument('--subset-fraction', type=float,
+                        help="Size of Subset as fraction")
+
+    args = parser.parse_args()
+    main(args)

@@ -16,6 +16,7 @@ class NLPTrainer(Trainer):
     def __init__(self, num_positive=2, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_positive = num_positive
+        self.best_model = {'net': None, 'critic': None}
 
     #########################################
     #           Loss Functions              #
@@ -96,6 +97,8 @@ class NLPTrainer(Trainer):
 
         if acc > self.best_acc:
             self.best_acc = acc
+            self.best_model['net'] = self.net
+            self.best_model['critic'] = self.critic
 
         return acc
 
@@ -103,5 +106,5 @@ class NLPTrainer(Trainer):
         if self.world_size > 1:
             torch.save(self.net.module, f"{prefix}-net.pt")
         else:
-            torch.save(self.net, f"{prefix}-net.pt")
-        torch.save(self.critic, f"{prefix}-critic.pt")
+            torch.save(self.best_model['net'], f"{prefix}-net.pt")
+        torch.save(self.best_model['critic'], f"{prefix}-critic.pt")

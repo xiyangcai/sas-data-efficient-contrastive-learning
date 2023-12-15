@@ -1,3 +1,4 @@
+import os.path
 from copy import deepcopy
 from typing import List
 
@@ -9,6 +10,7 @@ import torch.optim as optim
 from fast_pytorch_kmeans import KMeans
 from tqdm import tqdm
 from torchtext.vocab import GloVe
+from transformers import BertTokenizer, BertModel
 
 
 def glove_approx(
@@ -20,7 +22,7 @@ def glove_approx(
         batch_size: int = 512,
         verbose: bool = False,
 ):
-    Z = encode_using_glove(trainset, device)
+    Z = encode_using_bert(trainset, device)
     clf = train_linear_classifier(
         X=Z[labeled_example_indices],
         y=torch.tensor(labeled_examples_labels),
@@ -35,6 +37,31 @@ def glove_approx(
     preds = torch.cat(preds).numpy()
 
     return partition_from_preds(preds)
+
+
+def encode_using_bert(dataset, device):
+    cache_path = 'imdb_trainset_bert_embedding.pt'
+    if os.path.exists(cache_path):
+        Z = torch.load(cache_path).to(device)
+        return Z
+
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    model = BertModel.from_pretrained('bert-base-uncased')
+    texts = []
+
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        text = ' '.join(sample.text)
+        encoded_input = tokenizer(text, return_tensors='pt')
+        with torch.no_grad():
+            outputs = model(**encoded_input)
+        last_hidden_states = outputs.last_hidden_state
+        sentence_vec = last_hidden_states.mean(dim=1)
+
+        texts.append(sentence_vec)
+
+    Z = torch.cat(texts, dim=0).to(device)
+    return Z
 
 
 def encode_using_glove(dataset, device):

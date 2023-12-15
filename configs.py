@@ -23,7 +23,7 @@ class SupportedDatasets(Enum):
 Datasets = namedtuple('Datasets', 'trainset testset clftrainset num_classes stem')
 
 
-def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=False, num_positive=2, aug_func=None):
+def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=False, num_positive=2, aug_func=None, embedding_dim=100, aug_probs=0.2):
 
     CACHED_MEAN_STD = {
         SupportedDatasets.CIFAR10.value: ((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
@@ -161,9 +161,9 @@ def get_datasets(dataset: str, augment_clf_train=False, add_indices_to_data=Fals
 
     # IMDB dataset for NLP
     elif dataset == SupportedDatasets.IMDB.value:
-        trainset = AugmentedIMDbDataset(split='train', augment_function=aug_func)
-        clftrainset = IMDbDataset(split='train')
-        testset = IMDbDataset(split='test')
+        trainset = AugmentedIMDbDataset(split='train', augment_function=aug_func, embedding_dim=embedding_dim, aug_probs=aug_probs)
+        clftrainset = IMDbDataset(split='train', embedding_dim=embedding_dim)
+        testset = IMDbDataset(split='test', embedding_dim=embedding_dim)
         num_classes = 2
         stem = None
 
